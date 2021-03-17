@@ -84,7 +84,7 @@ class CustomTensorDataset(Dataset):
 
         if self.transform:
             X_i = self.transform(X_i)
-            X_i = torch.from_numpy(np.array(X_i, copy=False))
+            X_i = torch.from_numpy(np.array(X_i, copy=False))#.to(torch.uint8)
             X_i = X_i.permute(2, 0, 1)
 
         return X_i, y_i

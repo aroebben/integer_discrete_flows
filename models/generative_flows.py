@@ -74,8 +74,8 @@ class Permute(Base):
         permutation_inv = np.zeros(n_channels, dtype='int')
         permutation_inv[permutation] = np.arange(n_channels, dtype='int')
 
-        self.permutation = torch.from_numpy(permutation)
-        self.permutation_inv = torch.from_numpy(permutation_inv)
+        self.permutation = torch.from_numpy(permutation).to(dtype=torch.long)
+        self.permutation_inv = torch.from_numpy(permutation_inv).to(dtype=torch.long)
 
     def forward(self, z, ldj, reverse=False):
         if not reverse:
@@ -114,7 +114,20 @@ class GenerativeFlow(Base):
         width //= 2
 
         for level in range(args.n_levels):
-
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             for i in range(args.n_flows):
                 perm_layer = Permute(n_channels)
                 layers.append(perm_layer)
@@ -136,6 +149,13 @@ class GenerativeFlow(Base):
 
         self.layers = torch.nn.ModuleList(layers)
         self.z_size = (n_channels, height, width)
+
+
+
+
+
+
+
 
     def forward(self, z, ldj, pys=(), ys=(), reverse=False):
         if not reverse:

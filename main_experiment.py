@@ -47,12 +47,12 @@ fp.add_argument('-va', '--validation', action='store_false', dest='testing',
 parser.set_defaults(testing=True)
 
 # optimization settings
-parser.add_argument('-e', '--epochs', type=int, default=2000, metavar='EPOCHS',
+parser.add_argument('-e', '--epochs', type=int, default=1, metavar='EPOCHS',
                     help='number of epochs to train (default: 2000)')
 parser.add_argument('-es', '--early_stopping_epochs', type=int, default=300, metavar='EARLY_STOPPING',
                     help='number of early stopping epochs')
 
-parser.add_argument('-bs', '--batch_size', type=int, default=256, metavar='BATCH_SIZE',
+parser.add_argument('-bs', '--batch_size', type=int, default=1, metavar='BATCH_SIZE',
                     help='input batch size for training (default: 100)')
 parser.add_argument('-lr', '--learning_rate', type=float, default=0.001, metavar='LEARNING_RATE',
                     help='learning rate')
@@ -70,14 +70,14 @@ parser.add_argument('--distribution_type', type=str, default='logistic',
                     help='distribution type: logistic/normal')
 parser.add_argument('--n_flows', type=int, default=8,
                     help='number of flows per level')
-parser.add_argument('--n_levels', type=int, default=3,
+parser.add_argument('--n_levels', type=int, default=1,
                     help='number of levels')
 
 parser.add_argument('--n_bits', type=int, default=8,
                     help='')
 
 # ---------------- SETTINGS CONCERNING NETWORKS -------------
-parser.add_argument('--densenet_depth', type=int, default=8,
+parser.add_argument('--densenet_depth', type=int, default=4,
                     help='Depth of densenets')
 parser.add_argument('--n_channels', type=int, default=512,
                     help='number of channels in coupling and splitprior')
@@ -85,7 +85,7 @@ parser.add_argument('--n_channels', type=int, default=512,
 
 
 # ---------------- SETTINGS CONCERNING COUPLING LAYERS -------------
-parser.add_argument('--coupling_type', type=str, default='shallow',
+parser.add_argument('--coupling_type', type=str, default='densenet',
                     choices=['shallow', 'resnet', 'densenet'],
                     help='Type of coupling layer')
 parser.add_argument('--splitfactor', default=0, type=int,
@@ -99,7 +99,7 @@ parser.set_defaults(split_quarter=True)
 
 
 # ---------------- SETTINGS CONCERNING SPLITPRIORS -------------
-parser.add_argument('--splitprior_type', type=str, default='shallow',
+parser.add_argument('--splitprior_type', type=str, default='densenet',
                     choices=['none', 'shallow', 'resnet', 'densenet'],
                     help='Type of splitprior. Use \'none\' for no splitprior')
 # ---------------- ------------------------------- -------------
@@ -188,6 +188,7 @@ def run(args, kwargs):
     print(args.input_size)
 
     import models.Model as Model
+    torch.cuda.empty_cache()
 
     model = Model.Model(args)
     args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -201,7 +202,9 @@ def run(args, kwargs):
     # ====================================
     # data dependend initialization on CPU
     for batch_idx, (data, _) in enumerate(train_loader):
+        #data.to(device)#Already done later in line 214 I think.
         model(data)
+        
         break
 
     if torch.cuda.device_count() > 1:
@@ -209,6 +212,7 @@ def run(args, kwargs):
         model = torch.nn.DataParallel(model, dim=0)
 
     model.to(args.device)
+    
 
     def lr_lambda(epoch):
         return min(1., (epoch+1) / args.warmup) * np.power(args.lr_decay, epoch)
@@ -250,7 +254,7 @@ def run(args, kwargs):
             if np.mean(tr_bpd) < best_train_bpd:
                 best_train_bpd = np.mean(tr_bpd)
                 best_val_bpd = v_bpd
-                torch.save(model.module, snap_dir + 'a.model')
+                torch.save(model.state_dict(), snap_dir + 'a.model')#NEW
                 torch.save(optimizer, snap_dir + 'a.optimizer')
                 print('->model saved<-')
 
@@ -272,7 +276,13 @@ def run(args, kwargs):
     # ==================================================================================================================
     # EVALUATION
     # ==================================================================================================================
-    final_model = torch.load(snap_dir + 'a.model')
+    
+    final_model=Model.Model(args)
+    final_model.set_temperature(args.temperature)
+    final_model.enable_hard_round(args.hard_round)
+    final_model.to(args.device)
+    final_model.load_state_dict(torch.load(snap_dir + 'a.model'))
+    #final_model = torch.load(snap_dir + 'a.model')
     test_loss, test_bpd = evaluate(
         train_loader, test_loader, final_model, final_model, args,
         epoch=epoch, file=snap_dir + 'test_log.txt')
@@ -281,5 +291,4 @@ def run(args, kwargs):
 
 
 if __name__ == "__main__":
-
     run(args, kwargs)

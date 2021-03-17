@@ -13,6 +13,11 @@ from models.utils import Base
 UNIT_TESTING = False
 
 
+
+#Conv1DReLU_with_ MaxPooling  
+#This will need to change to get it in 1D instead of 2D (not an image with 3 channels but only text)
+
+
 class Conv2dReLU(Base):
     def __init__(
             self, n_inputs, n_outputs, kernel_size=3, stride=1, padding=0,
